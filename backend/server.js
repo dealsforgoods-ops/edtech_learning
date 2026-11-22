@@ -619,8 +619,8 @@ app.get('/api/me/course-requests', authenticate, async (request, response) => {
   }
 });
 
-async function connectDatabase() {
-  const client = new MongoClient(MONGO_URI);
+async function connectDatabase(options) {
+  const client = new MongoClient(MONGO_URI, options);
 
   try {
     await client.connect();

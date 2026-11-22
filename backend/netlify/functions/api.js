@@ -6,7 +6,7 @@ let databasePromise;
 
 exports.handler = async (event, context) => {
   if (!databasePromise) {
-    databasePromise = app.connectDatabase()
+    databasePromise = app.connectDatabase({ serverSelectionTimeoutMS: 8000, connectTimeoutMS: 8000 })
       .then((client) => {
         app.locals.db = client.db('edtech-elearn');
         return client;
