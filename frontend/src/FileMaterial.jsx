@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { downloadFile } from './fileTransfers'
 
 function FileMaterial({ courseId, material, token }) {
   const [url, setUrl] = useState('')
@@ -21,13 +22,7 @@ function FileMaterial({ courseId, material, token }) {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`/api/courses/${courseId}/materials/${material._id}/file`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: controller.signal,
-      })
-      if (response.status === 401) throw new Error('Your session has expired. Please sign in again.')
-      if (!response.ok) throw new Error('Could not load the file or you no longer have access.')
-      const blob = await response.blob()
+      const blob = await downloadFile(courseId, material, token, controller.signal)
       if (!controller.signal.aborted) setUrl(URL.createObjectURL(blob))
     } catch (error) {
       if (!controller.signal.aborted) setError(error.message)

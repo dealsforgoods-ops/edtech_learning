@@ -8,7 +8,15 @@ A React, Express, and MongoDB learning management application.
 2. In `backend`, run `npm install` and then `npm run dev`.
 3. In `frontend`, run `npm install` and then `npm run dev`. Open the URL displayed by Vite.
 
-The frontend's `/api` proxy is for local development. This project is not yet configured or verified for production deployment. Admin creation requires a separate, controlled provisioning process; public registration creates only students or pending faculty.
+The frontend's `/api` proxy is for local development. A Netlify Functions adapter and build configuration are included but have not yet been verified on Netlify. Admin creation requires a separate, controlled provisioning process; public registration creates only students or pending faculty.
+
+## Netlify preparation
+
+The root `netlify.toml` installs both applications, builds the frontend, and routes `/api/*` to an Express-backed Netlify Function. Use the repository root as the Netlify base directory. Configure `MONGO_URI` and `JWT_SECRET` as secret environment variables available to functions; do not put them in the frontend or Git. Atlas needs a network access configuration that permits the deployed functions and a least-privilege database user. The deployed Atlas database is separate from local MongoDB unless data is migrated.
+
+File uploads and downloads use 1 MiB chunks to fit within Netlify's function payload limits. Uploads are staged temporarily in MongoDB with a 24-hour expiry and assembled into GridFS before the material is published. This temporarily uses additional database space. A failed transfer must be started again; a failure during final assembly can leave an orphaned GridFS file requiring administrative cleanup. Full-size transfers were tested against a local test database, not on Netlify; Netlify execution limits, Atlas storage limits, and network conditions can still affect deployed transfers. Test on a private deployment before relying on it.
+
+Before public use, provide secure admin provisioning, production access controls for Atlas, rate limiting, storage quotas, malware scanning, moderation, monitoring, and backups. The current app is a capstone prototype, not production-hardened.
 
 ## Features
 
@@ -25,6 +33,6 @@ External links point to independent websites; access restrictions in this app ca
 
 Run `npm test` in `backend` for integration tests against an isolated, automatically removed test database on the MongoDB server specified in `backend/.env`. The tests do not alter the application database, but do require permission to create and drop their own test database.
 
-Run `npm run lint` and `npm run build` in `frontend`. The upload boundary validator is tested at 50 MiB and one byte above it; a full-size end-to-end upload has not yet been verified on this machine because of available system resources.
+Run `npm test`, `npm run lint` and `npm run build` in `frontend`. Backend tests exercise a full 50 MiB chunked transfer against an isolated local database, access restrictions, binary handling through a simulated Netlify Function request, and the 50 MiB size boundary. They do not prove that the deployed service supports the same transfer under cloud limits.
 
-The existing one-hour JWT sessions are kept in browser memory and are cleared on refresh. Forgotten-password recovery, deployment configuration, and a remote Git repository remain to be set up.
+The existing one-hour JWT sessions are kept in browser memory and are cleared on refresh. Forgotten-password recovery and production deployment remain to be set up.

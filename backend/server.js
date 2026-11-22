@@ -359,6 +359,7 @@ async function getCourseAccess(db, user, courseId) {
 
 require('./courseFeatures')(app, authenticate, getCourseAccess);
 require('./courseFiles')(app, authenticate, getCourseAccess);
+require('./chunkedFiles')(app, authenticate, getCourseAccess);
 
 app.post('/api/courses', authenticate, requireAdmin, async (request, response) => {
   const { course, error } = validateCourse(request.body);
@@ -618,7 +619,7 @@ app.get('/api/me/course-requests', authenticate, async (request, response) => {
   }
 });
 
-async function startServer() {
+async function connectDatabase() {
   const client = new MongoClient(MONGO_URI);
 
   try {
@@ -643,19 +644,34 @@ async function startServer() {
     await client.db('edtech-elearn')
       .collection('courseMessages')
       .createIndex({ courseId: 1, createdAt: -1, _id: -1 });
+    await client.db('edtech-elearn')
+      .collection('fileUploadSessions')
+      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await client.db('edtech-elearn')
+      .collection('fileUploadChunks')
+      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await client.db('edtech-elearn')
+      .collection('fileUploadChunks')
+      .createIndex({ uploadId: 1, index: 1 }, { unique: true });
+    return client;
   } catch (error) {
     console.error('Database initialization failed:', error.message);
     await client.close();
-    process.exitCode = 1;
-    return;
+    throw error;
   }
+}
 
-  app.locals.db = client.db('edtech-elearn');
-  console.log('Connected to MongoDB');
-
-  app.listen(PORT, () => {
-    console.log(`EdTech ELearn API is running on port ${PORT}`);
-  });
+async function startServer() {
+  try {
+    const client = await connectDatabase();
+    app.locals.db = client.db('edtech-elearn');
+    console.log('Connected to MongoDB');
+    app.listen(PORT, () => {
+      console.log(`EdTech ELearn API is running on port ${PORT}`);
+    });
+  } catch (error) {
+    process.exitCode = 1;
+  }
 }
 
 app.patch('/api/admin/courses/:id/faculty', authenticate, requireAdmin, async (request, response) => {
@@ -918,3 +934,4 @@ app.put('/api/courses/:id/materials/:materialId', authenticate, async (request, 
 if (require.main === module) startServer();
 
 module.exports = app;
+module.exports.connectDatabase = connectDatabase;

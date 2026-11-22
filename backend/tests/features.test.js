@@ -146,6 +146,72 @@ test('course features respect roles, persist data, and protect files', { timeout
     assert.equal((await call(`/courses/${id}/materials/${material._id}`, facultyToken, 'DELETE')).status, 200);
     assert.equal((await new GridFSBucket(db, { bucketName: 'courseFiles' }).find({}).toArray()).length, 0);
     assert.equal((await call(`/courses/${id}/materials/${material._id}/file`, studentToken)).status, 404);
+
+    await db.collection('fileUploadChunks').createIndex({ uploadId: 1, index: 1 }, { unique: true });
+    const chunkCourse = { _id: new ObjectId(), title: 'Chunk course', category: 'Test', description: 'Test', facultyId: faculty._id };
+    await db.collection('courses').insertOne(chunkCourse);
+    await db.collection('courseRequests').insertOne({ studentId: student._id, courseId: chunkCourse._id, status: 'approved' });
+    const chunkId = chunkCourse._id.toString();
+    const baseUpload = `/courses/${chunkId}/file-uploads`;
+    const size = 50 * 1024 * 1024;
+    const details = { title: 'Maximum file', filename: 'movie.mp4', size };
+    assert.equal((await call(baseUpload, studentToken, 'POST', details)).status, 403);
+    assert.equal((await call(baseUpload, adminToken, 'POST', { ...details, size: size + 1 })).status, 400);
+    const sessionResponse = await call(baseUpload, facultyToken, 'POST', details);
+    assert.equal(sessionResponse.status, 201);
+    const session = await sessionResponse.json();
+    const chunksPath = `${baseUpload}/${session.uploadId}/chunks`;
+    assert.equal((await call(`${baseUpload}/${session.uploadId}/complete`, facultyToken, 'POST')).status, 400);
+    assert.equal((await call(`${chunksPath}/0`, unassignedToken, 'PUT', Buffer.from('bad'), { 'Content-Type': 'application/octet-stream' })).status, 403);
+    assert.equal((await call(`${chunksPath}/0`, facultyToken, 'PUT', Buffer.from('bad'), { 'Content-Type': 'application/octet-stream' })).status, 400);
+    const chunk = Buffer.alloc(session.chunkSize, 0x5a);
+    for (let index = 0; index < 50; index++) {
+      const result = await call(`${chunksPath}/${index}`, facultyToken, 'PUT', chunk, { 'Content-Type': 'application/octet-stream' });
+      assert.equal(result.status, 200, `upload chunk ${index}`);
+    }
+    const finished = await call(`${baseUpload}/${session.uploadId}/complete`, facultyToken, 'POST');
+    assert.equal(finished.status, 201, await finished.clone().text());
+    const chunkMaterial = await finished.json();
+    const downloadPath = `/courses/${chunkId}/materials/${chunkMaterial._id}/file-chunks`;
+    assert.equal((await call(`${downloadPath}/0`, outsiderToken)).status, 403);
+    for (let index = 0; index < 50; index++) {
+      const result = await call(`${downloadPath}/${index}`, studentToken);
+      assert.equal(result.status, 200, `download chunk ${index}`);
+      assert.equal(Number(result.headers.get('x-file-size')), size);
+      assert.deepEqual(Buffer.from(await result.arrayBuffer()), chunk);
+    }
+    assert.equal((await call(`${downloadPath}/50`, studentToken)).status, 416);
+    assert.equal(await db.collection('fileUploadChunks').countDocuments({ uploadId: new ObjectId(session.uploadId) }), 0);
+
+    app.connectDatabase = async () => ({ db: () => db });
+    const netlify = require('../netlify/functions/api');
+    async function functionCall(method, requestPath, token, body, contentType) {
+      const headers = { authorization: `Bearer ${token}` };
+      if (contentType) headers['content-type'] = contentType;
+      if (body) headers['content-length'] = String(body.length);
+      return netlify.handler({
+        httpMethod: method, path: `/api${requestPath}`, headers,
+        requestContext: {}, isBase64Encoded: Buffer.isBuffer(body),
+        body: Buffer.isBuffer(body) ? body.toString('base64') : body,
+      }, {});
+    }
+    const smallStart = await functionCall('POST', baseUpload, facultyToken,
+      JSON.stringify({ title: 'Function upload', filename: 'test.pdf', size: chunk.length + 3 }), 'application/json');
+    assert.equal(smallStart.statusCode, 201, smallStart.body);
+    const functionUpload = JSON.parse(smallStart.body).uploadId;
+    for (const [index, bytes] of [chunk, Buffer.from([0, 128, 255])].entries()) {
+      const result = await functionCall('PUT', `${baseUpload}/${functionUpload}/chunks/${index}`,
+        facultyToken, bytes, 'application/octet-stream');
+      assert.equal(result.statusCode, 200, result.body);
+    }
+    const functionFinished = await functionCall('POST', `${baseUpload}/${functionUpload}/complete`, facultyToken);
+    assert.equal(functionFinished.statusCode, 201, functionFinished.body);
+    const functionMaterial = JSON.parse(functionFinished.body);
+    const binary = await functionCall('GET',
+      `/courses/${chunkId}/materials/${functionMaterial._id}/file-chunks/1`, studentToken);
+    assert.equal(binary.statusCode, 200, binary.body);
+    assert.equal(binary.isBase64Encoded, true);
+    assert.deepEqual(Buffer.from(binary.body, 'base64'), Buffer.from([0, 128, 255]));
   } finally {
     if (server) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await db.dropDatabase();

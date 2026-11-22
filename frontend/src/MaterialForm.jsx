@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { uploadFile } from './fileTransfers'
 
 function MaterialForm({ course, token, material, onSaved, onCancel }) {
   const [title, setTitle] = useState(material?.title || '')
@@ -62,6 +63,10 @@ function MaterialForm({ course, token, material, onSaved, onCancel }) {
           : `${endpoint}/files?${new URLSearchParams({ title: cleanTitle, filename: file.name })}`
       }
 
+      let saved
+      if (isFile && !editing) {
+        saved = await uploadFile(course._id, token, cleanTitle, file)
+      } else {
       const response = await fetch(endpoint, {
         method: isFile && editing ? 'PATCH' : editing ? 'PUT' : 'POST',
         headers: {
@@ -92,7 +97,8 @@ function MaterialForm({ course, token, material, onSaved, onCancel }) {
         throw new Error('Could not save the material.')
       }
 
-      const saved = await response.json()
+      saved = await response.json()
+      }
       if (
         !saved ||
         typeof saved._id !== 'string' ||
