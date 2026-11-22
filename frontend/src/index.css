@@ -1,0 +1,133 @@
+body {
+  background: #f4f7fb;
+  color: #17243a;
+}
+
+.site-header {
+  background: #fff;
+  border-bottom: 1px solid #dce5ef;
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 76px;
+  padding-block: 0.75rem;
+}
+
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #075985;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.6rem;
+  background: #075985;
+  color: #fff;
+}
+
+.brand-accent {
+  color: #b77900;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.nav-courses {
+  margin-right: 0.5rem;
+  color: #284660;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nav-courses:hover {
+  text-decoration: underline;
+}
+
+.page-content {
+  padding-block: 3rem;
+}
+
+.welcome {
+  margin-bottom: 2rem;
+}
+
+.welcome h1 {
+  color: #075985;
+  font-weight: 700;
+}
+
+.eyebrow {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.content-panel {
+  height: 100%;
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #dce5ef;
+  border-radius: 0.75rem;
+}
+
+.content-panel h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.section-description {
+  color: #64748b;
+}
+
+.course-list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.course-card {
+  padding: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #dce5ef;
+  border-radius: 0.6rem;
+}
+
+.course-card h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.course-category {
+  color: #075985;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 575px) {
+  .site-header-inner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .page-content {
+    padding-block: 2rem;
+  }
+}
